@@ -1,0 +1,11 @@
+# @author madebycm (2025-01-26)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+sandboxes/
+core/
+.DS_Store
