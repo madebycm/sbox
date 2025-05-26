@@ -20,7 +20,7 @@ for i in "${!projects[@]}"; do
 done
 
 # Get user selection
-echo -n "Select project to activate (1-${#projects[@]}), 'n' to create new project, or 'c' to clear all volumes: "
+echo -n "Select project to activate (1-${#projects[@]}), 'n' to create new project, 'i' to install sbox command, or 'c' to clear all volumes: "
 read selection
 
 # Check if user wants to create new project
@@ -48,8 +48,8 @@ if [ "$selection" = "n" ] || [ "$selection" = "N" ]; then
     selected_project="$project_name"
     echo "Activating project: $selected_project"
     
-    # Update docker-compose.yml with selected project
-    sed -i.bak "s|./projects/[^:]*:/project|./projects/$selected_project:/project|" compose.yml
+    # Export project path for docker-compose
+    export PROJECT_PATH="./projects/$selected_project"
     
     # Check if container exists
     if [ "$(docker ps -aq -f name=persistent-sbox)" ]; then
@@ -62,6 +62,69 @@ if [ "$selection" = "n" ] || [ "$selection" = "N" ]; then
         docker-compose up -d --build
         docker-compose exec sbox /bin/bash
     fi
+    exit 0
+fi
+
+# Check if user wants to install sbox command
+if [ "$selection" = "i" ] || [ "$selection" = "I" ]; then
+    echo "Installing sbox command..."
+    
+    # Get the absolute path to this sandbox directory
+    SANDBOX_DIR="$(cd "$(dirname "$0")" && pwd)"
+    
+    # Create sbox script
+    cat > "$SANDBOX_DIR/sbox" << 'EOF'
+#!/bin/bash
+# @author madebycm (2025-01-26)
+# Sandbox launcher - mounts current directory as /project
+
+# Get current directory
+CURRENT_DIR="$(pwd)"
+
+# Get sandbox directory from script location
+SANDBOX_DIR="$(dirname "$(readlink -f "$0")")"
+
+# Export project path for docker-compose
+export PROJECT_PATH="$CURRENT_DIR"
+
+# Change to sandbox directory
+cd "$SANDBOX_DIR"
+
+echo "Mounting $CURRENT_DIR as /project in sandbox..."
+
+# Check if container exists
+if [ "$(docker ps -aq -f name=persistent-sbox)" ]; then
+    # Container exists, recreate with new mount
+    docker-compose down
+    docker-compose up -d
+    docker-compose exec sbox /bin/bash
+else
+    # First run, build and start
+    docker-compose up -d --build
+    docker-compose exec sbox /bin/bash
+fi
+EOF
+    
+    # Make sbox executable
+    chmod +x "$SANDBOX_DIR/sbox"
+    
+    # Always use .zprofile for PATH configuration
+    SHELL_CONFIG="$HOME/.zprofile"
+    
+    # Check if sbox is already in PATH
+    if ! grep -q "# Sandbox command" "$SHELL_CONFIG" 2>/dev/null; then
+        echo "" >> "$SHELL_CONFIG"
+        echo "# Sandbox command" >> "$SHELL_CONFIG"
+        echo "export PATH=\"$SANDBOX_DIR:\$PATH\"" >> "$SHELL_CONFIG"
+        echo "Added sbox to PATH in $SHELL_CONFIG"
+        echo ""
+        echo "Installation complete! To use sbox command:"
+        echo "1. Reload your shell: source $SHELL_CONFIG"
+        echo "2. Navigate to any directory and run: sbox"
+    else
+        echo "sbox command already installed in $SHELL_CONFIG"
+    fi
+    
     exit 0
 fi
 
@@ -91,8 +154,8 @@ fi
 selected_project="${projects[$((selection-1))]}"
 echo "Activating project: $selected_project"
 
-# Update docker-compose.yml with selected project
-sed -i.bak "s|./projects/[^:]*:/project|./projects/$selected_project:/project|" compose.yml
+# Export project path for docker-compose
+export PROJECT_PATH="./projects/$selected_project"
 
 # Check if container exists
 if [ "$(docker ps -aq -f name=persistent-sbox)" ]; then

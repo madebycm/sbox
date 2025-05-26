@@ -1,0 +1,29 @@
+#!/bin/bash
+# @author madebycm (2025-01-26)
+# Sandbox launcher - mounts current directory as /project
+
+# Get current directory
+CURRENT_DIR="$(pwd)"
+
+# Get sandbox directory from script location
+SANDBOX_DIR="$(dirname "$(readlink -f "$0")")"
+
+# Export project path for docker-compose
+export PROJECT_PATH="$CURRENT_DIR"
+
+# Change to sandbox directory
+cd "$SANDBOX_DIR"
+
+echo "Mounting $CURRENT_DIR as /project in sandbox..."
+
+# Check if container exists
+if [ "$(docker ps -aq -f name=persistent-sbox)" ]; then
+    # Container exists, recreate with new mount
+    docker-compose down
+    docker-compose up -d
+    docker-compose exec sbox /bin/bash
+else
+    # First run, build and start
+    docker-compose up -d --build
+    docker-compose exec sbox /bin/bash
+fi
