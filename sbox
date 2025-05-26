@@ -14,16 +14,33 @@ export PROJECT_PATH="$CURRENT_DIR"
 # Change to sandbox directory
 cd "$SANDBOX_DIR"
 
-echo "Mounting $CURRENT_DIR as /project in sandbox..."
-
-# Check if container exists
-if [ "$(docker ps -aq -f name=persistent-sbox)" ]; then
-    # Container exists, recreate with new mount
+# Handle stop command
+if [ "$1" = "stop" ]; then
+    echo "Stopping sandbox container..."
     docker-compose down
-    docker-compose up -d
-    docker-compose exec sbox /bin/bash
+    exit 0
+fi
+
+# Check if container is running
+if [ "$(docker ps -q -f name=persistent-sbox)" ]; then
+    # Container is running, just attach to it
+    echo "Entering existing sandbox container..."
+    # Get the currently mounted directory
+    MOUNTED_DIR=$(docker inspect persistent-sbox --format '{{ range .Mounts }}{{ if eq .Destination "/project" }}{{ .Source }}{{ end }}{{ end }}')
+    echo "Currently mounted: $MOUNTED_DIR → /project"
+    docker exec -it persistent-sbox /bin/bash
 else
-    # First run, build and start
-    docker-compose up -d --build
+    # Container not running
+    echo "Mounting $CURRENT_DIR as /project in sandbox..."
+    
+    # Check if container exists but is stopped
+    if [ "$(docker ps -aq -f name=persistent-sbox)" ]; then
+        # Container exists but stopped, start it
+        docker-compose up -d
+    else
+        # First run, build and start
+        docker-compose up -d --build
+    fi
+    
     docker-compose exec sbox /bin/bash
 fi
