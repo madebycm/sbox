@@ -20,14 +20,64 @@ for i in "${!projects[@]}"; do
 done
 
 # Get user selection
-echo -n "Select project to activate (1-${#projects[@]}) or 'c' to clear all volumes: "
+echo -n "Select project to activate (1-${#projects[@]}), 'n' to create new project, or 'c' to clear all volumes: "
 read selection
+
+# Check if user wants to create new project
+if [ "$selection" = "n" ] || [ "$selection" = "N" ]; then
+    echo -n "Enter name for new project: "
+    read project_name
+    
+    # Validate project name
+    if [[ ! "$project_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "Invalid project name. Use only letters, numbers, hyphens, and underscores."
+        exit 1
+    fi
+    
+    # Check if project already exists
+    if [ -d "./projects/$project_name" ]; then
+        echo "Project '$project_name' already exists."
+        exit 1
+    fi
+    
+    # Create new project directory
+    mkdir -p "./projects/$project_name"
+    echo "Created new project: $project_name"
+    
+    # Set as selected project
+    selected_project="$project_name"
+    echo "Activating project: $selected_project"
+    
+    # Update docker-compose.yml with selected project
+    sed -i.bak "s|./projects/[^:]*:/project|./projects/$selected_project:/project|" compose.yml
+    
+    # Check if container exists
+    if [ "$(docker ps -aq -f name=persistent-sbox)" ]; then
+        # Container exists, recreate with new mount
+        docker-compose down
+        docker-compose up -d
+        docker-compose exec sbox /bin/bash
+    else
+        # First run, build and start
+        docker-compose up -d --build
+        docker-compose exec sbox /bin/bash
+    fi
+    exit 0
+fi
 
 # Check if user wants to clear volumes
 if [ "$selection" = "c" ] || [ "$selection" = "C" ]; then
-    echo "Clearing all Docker volumes..."
-    docker-compose down -v
-    echo "All volumes cleared. Container and data removed."
+    echo "WARNING: This will delete all Docker volumes and container data."
+    echo -n "Type 'yes' to confirm: "
+    read confirmation
+    
+    if [ "$confirmation" = "yes" ]; then
+        echo "Clearing all Docker volumes..."
+        docker-compose down -v
+        echo "All volumes cleared. Container and data removed."
+    else
+        echo "Operation cancelled."
+    fi
     exit 0
 fi
 
