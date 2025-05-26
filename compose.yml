@@ -2,27 +2,27 @@
 # @author madebycm (2025-01-26)
 
 services:
-  ubuntu-dev:
+  sbox:
     build: .
-    container_name: persistent-ubuntu-dev
+    container_name: persistent-sbox
     stdin_open: true
     tty: true
     volumes:
-      - ./projects/helloworld:/project
-      - ubuntu-dev-data:/data
-      - ubuntu-dev-usr:/usr
-      - ubuntu-dev-var:/var
-      - ubuntu-dev-etc:/etc
-      - ubuntu-dev-opt:/opt
-      - ubuntu-dev-home:/home
-      - ubuntu-dev-root:/root
+      - ./projects/dosage:/project
+      - sbox-data:/data
+      - sbox-usr:/usr
+      - sbox-var:/var
+      - sbox-etc:/etc
+      - sbox-opt:/opt
+      - sbox-home:/home
+      - sbox-root:/root
     command: /bin/bash
 
 volumes:
-  ubuntu-dev-data:
-  ubuntu-dev-usr:
-  ubuntu-dev-var:
-  ubuntu-dev-etc:
-  ubuntu-dev-opt:
-  ubuntu-dev-home:
-  ubuntu-dev-root:
+  sbox-data:
+  sbox-usr:
+  sbox-var:
+  sbox-etc:
+  sbox-opt:
+  sbox-home:
+  sbox-root:

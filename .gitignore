@@ -9,3 +9,4 @@ venv/
 sandboxes/
 .DS_Store
 projects/
+compose.yml.bak

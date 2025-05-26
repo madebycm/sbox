@@ -42,16 +42,16 @@ selected_project="${projects[$((selection-1))]}"
 echo "Activating project: $selected_project"
 
 # Update docker-compose.yml with selected project
-sed -i.bak "s|./projects/[^:]*:/project|./projects/$selected_project:/project|" docker-compose.yml
+sed -i.bak "s|./projects/[^:]*:/project|./projects/$selected_project:/project|" compose.yml
 
 # Check if container exists
-if [ "$(docker ps -aq -f name=persistent-ubuntu-dev)" ]; then
+if [ "$(docker ps -aq -f name=persistent-sbox)" ]; then
     # Container exists, recreate with new mount
     docker-compose down
     docker-compose up -d
-    docker-compose exec ubuntu-dev /bin/bash
+    docker-compose exec sbox /bin/bash
 else
     # First run, build and start
     docker-compose up -d --build
-    docker-compose exec ubuntu-dev /bin/bash
+    docker-compose exec sbox /bin/bash
 fi
