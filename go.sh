@@ -20,8 +20,16 @@ for i in "${!projects[@]}"; do
 done
 
 # Get user selection
-echo -n "Select project to activate (1-${#projects[@]}): "
+echo -n "Select project to activate (1-${#projects[@]}) or 'c' to clear all volumes: "
 read selection
+
+# Check if user wants to clear volumes
+if [ "$selection" = "c" ] || [ "$selection" = "C" ]; then
+    echo "Clearing all Docker volumes..."
+    docker-compose down -v
+    echo "All volumes cleared. Container and data removed."
+    exit 0
+fi
 
 # Validate selection
 if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt ${#projects[@]} ]; then
