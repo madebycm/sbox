@@ -1,0 +1,28 @@
+
+# @author madebycm (2025-01-26)
+
+services:
+  ubuntu-dev:
+    build: .
+    container_name: persistent-ubuntu-dev
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./projects/helloworld:/project
+      - ubuntu-dev-data:/data
+      - ubuntu-dev-usr:/usr
+      - ubuntu-dev-var:/var
+      - ubuntu-dev-etc:/etc
+      - ubuntu-dev-opt:/opt
+      - ubuntu-dev-home:/home
+      - ubuntu-dev-root:/root
+    command: /bin/bash
+
+volumes:
+  ubuntu-dev-data:
+  ubuntu-dev-usr:
+  ubuntu-dev-var:
+  ubuntu-dev-etc:
+  ubuntu-dev-opt:
+  ubuntu-dev-home:
+  ubuntu-dev-root:
