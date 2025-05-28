@@ -8,18 +8,18 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user with password
-RUN useradd -m -s /bin/bash developer && \
-    echo 'developer:123' | chpasswd && \
-    usermod -aG sudo developer
+RUN useradd -m -s /bin/bash sBOX && \
+    echo 'sBOX:123' | chpasswd && \
+    usermod -aG sudo sBOX
 
-# Configure sudo to not require password for developer
-RUN echo 'developer ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+# Configure sudo to not require password for sBOX
+RUN echo 'sBOX ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 # Set working directory
 WORKDIR /project
 
 # Switch to non-root user
-USER developer
+USER sBOX
 
 # Default command
 CMD ["/bin/bash"]
