@@ -23,12 +23,33 @@ fi
 
 # Check if container is running
 if [ "$(docker ps -q -f name=persistent-sbox)" ]; then
-    # Container is running, just attach to it
-    echo "Entering existing sandbox container..."
+    # Container is running, ask user what to do
+    echo "Sandbox container is already running."
     # Get the currently mounted directory
     MOUNTED_DIR=$(docker inspect persistent-sbox --format '{{ range .Mounts }}{{ if eq .Destination "/project" }}{{ .Source }}{{ end }}{{ end }}')
     echo "Currently mounted: $MOUNTED_DIR → /project"
-    docker exec -it persistent-sbox /bin/bash
+    echo ""
+    echo "What would you like to do?"
+    echo "1) Enter existing container"
+    echo "2) Create new instance"
+    echo -n "Choice (1/2): "
+    read -r choice
+    
+    case "$choice" in
+        1)
+            echo "Entering existing sandbox container..."
+            docker exec -it persistent-sbox /bin/bash
+            ;;
+        2)
+            echo "Creating new sandbox instance is not yet implemented."
+            echo "Please stop the current container first with: sbox stop"
+            exit 1
+            ;;
+        *)
+            echo "Invalid choice. Exiting."
+            exit 1
+            ;;
+    esac
 else
     # Container not running
     echo "Mounting $CURRENT_DIR as /project in sandbox..."
