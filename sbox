@@ -19,6 +19,70 @@ IMAGE_NAME="sbox-image"
 # Change to sandbox directory
 cd "$SANDBOX_DIR"
 
+# Handle install command
+if [ "$1" = "install" ]; then
+    INSTALL_DIR="$HOME/.local/bin"
+    mkdir -p "$INSTALL_DIR"
+    
+    # Copy sbox script
+    cp "$SANDBOX_DIR/sbox" "$INSTALL_DIR/sbox"
+    chmod +x "$INSTALL_DIR/sbox"
+    
+    # Check if ~/.local/bin is in PATH
+    if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+        echo "sbox installed to $INSTALL_DIR/sbox"
+        echo ""
+        echo "To use sbox from anywhere, add this to your shell profile:"
+        echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    else
+        echo "sbox installed successfully to $INSTALL_DIR/sbox"
+        echo "You can now use 'sbox' from anywhere!"
+    fi
+    exit 0
+fi
+
+# Handle uninstall command
+if [ "$1" = "uninstall" ]; then
+    INSTALL_DIR="$HOME/.local/bin"
+    if [ -f "$INSTALL_DIR/sbox" ]; then
+        rm "$INSTALL_DIR/sbox"
+        echo "sbox uninstalled from $INSTALL_DIR/sbox"
+    else
+        echo "sbox not found in $INSTALL_DIR"
+    fi
+    exit 0
+fi
+
+# Handle purge command
+if [ "$1" = "purge" ]; then
+    echo "WARNING: This will delete ALL sbox containers and volumes!"
+    echo "All data stored in shared volumes will be PERMANENTLY DELETED."
+    echo ""
+    echo -n "Are you sure? (yes/NO): "
+    read -r confirmation
+    
+    if [ "$confirmation" = "yes" ]; then
+        echo ""
+        echo "Stopping all sbox containers..."
+        docker ps -a --filter "name=^sbox-" --format "{{.Names}}" | xargs -r docker stop
+        
+        echo "Removing all sbox containers..."
+        docker ps -a --filter "name=^sbox-" --format "{{.Names}}" | xargs -r docker rm
+        
+        echo "Removing all sbox volumes..."
+        docker volume ls --filter "name=^sbox" --format "{{.Name}}" | xargs -r docker volume rm
+        
+        echo "Removing sbox image..."
+        docker rmi "$IMAGE_NAME" 2>/dev/null
+        
+        echo ""
+        echo "Purge complete! All sbox containers, volumes, and images have been removed."
+    else
+        echo "Purge cancelled."
+    fi
+    exit 0
+fi
+
 # Handle list command
 if [ "$1" = "list" ]; then
     echo "Running sbox containers:"
