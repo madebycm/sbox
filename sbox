@@ -5,49 +5,43 @@
 # Get current directory
 CURRENT_DIR="$(pwd)"
 
-# Get sandbox directory from script location or use embedded path
-if [ -f "$0" ] && [ "$(basename "$(dirname "$0")")" = "sbox" ]; then
-    # Running from source directory
-    SANDBOX_DIR="$(dirname "$(readlink -f "$0")")"
-else
-    # Running from installed location, use embedded path
-    SANDBOX_DIR="/Users/0x7f/www/sbox"
-fi
-
-# Generate container name based on current directory path
-# Replace / with - and remove leading/trailing -
-CONTAINER_SUFFIX=$(echo "$CURRENT_DIR" | sed 's|/|-|g' | sed 's/^-//' | sed 's/-$//' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
-CONTAINER_NAME="sbox-${CONTAINER_SUFFIX}"
-
-# Docker image name
-IMAGE_NAME="sbox-image"
-
-# Change to sandbox directory
-cd "$SANDBOX_DIR"
-
-# Handle install command
+# Handle install command first (before config check)
 if [ "$1" = "install" ]; then
+    # When installing, we're in the source directory
+    SANDBOX_DIR="$(dirname "$(readlink -f "$0")")"
     INSTALL_DIR="$HOME/.local/bin"
     mkdir -p "$INSTALL_DIR"
     
-    # Create a wrapper script with embedded sandbox directory
-    cat > "$INSTALL_DIR/sbox" << 'EOF'
+    # Create config directory and file
+    CONFIG_DIR="$HOME/.sbox"
+    CONFIG_FILE="$CONFIG_DIR/config"
+    mkdir -p "$CONFIG_DIR"
+    
+    # Store the installation root directory in config
+    cat > "$CONFIG_FILE" << EOF
+# @author madebycm (2025-01-31)
+# sbox configuration
+ROOT_INSTALL_DIR="$(pwd)"
+EOF
+    
+    # Create a wrapper script with embedded sbox path
+    cat > "$INSTALL_DIR/sbox" << EOF
 #!/bin/bash
 # @author madebycm (2025-01-31)
 # sbox wrapper - installed version
 
-# Set the sandbox directory
-SANDBOX_DIR="/Users/0x7f/www/sbox"
+# The actual sbox script location
+SBOX_EXEC="$SANDBOX_DIR/sbox"
 
-# Check if sandbox directory exists
-if [ ! -d "$SANDBOX_DIR" ]; then
-    echo "Error: sbox directory not found at $SANDBOX_DIR"
-    echo "Please reinstall sbox from the source directory."
+# Check if sbox executable exists
+if [ ! -x "\$SBOX_EXEC" ]; then
+    echo "Error: sbox executable not found at \$SBOX_EXEC"
+    echo "The sbox installation may have been moved or deleted."
     exit 1
 fi
 
 # Execute the real sbox script
-exec "$SANDBOX_DIR/sbox" "$@"
+exec "\$SBOX_EXEC" "\$@"
 EOF
     
     chmod +x "$INSTALL_DIR/sbox"
@@ -65,15 +59,54 @@ EOF
     exit 0
 fi
 
+# Get sandbox directory from script location
+if [ -f "$0" ] && [ "$(basename "$(dirname "$0")")" = "sbox" ]; then
+    # Running from source directory
+    SANDBOX_DIR="$(dirname "$(readlink -f "$0")")"
+    # When running from source, use sandbox dir as root install dir
+    ROOT_INSTALL_DIR="$SANDBOX_DIR"
+else
+    # Should not happen - wrapper script calls the real sbox
+    echo "Error: Unexpected execution context"
+    exit 1
+fi
+
+# Load ROOT_INSTALL_DIR from config if it exists
+CONFIG_FILE="$HOME/.sbox/config"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+fi
+
+# Generate container name based on current directory path
+# Replace / with - and remove leading/trailing -
+CONTAINER_SUFFIX=$(echo "$CURRENT_DIR" | sed 's|/|-|g' | sed 's/^-//' | sed 's/-$//' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+CONTAINER_NAME="sbox-${CONTAINER_SUFFIX}"
+
+# Docker image name
+IMAGE_NAME="sbox-image"
+
+# Change to sandbox directory
+cd "$SANDBOX_DIR"
+
 # Handle uninstall command
 if [ "$1" = "uninstall" ]; then
     INSTALL_DIR="$HOME/.local/bin"
+    CONFIG_DIR="$HOME/.sbox"
+    
+    # Remove the wrapper script
     if [ -f "$INSTALL_DIR/sbox" ]; then
         rm "$INSTALL_DIR/sbox"
         echo "sbox uninstalled from $INSTALL_DIR/sbox"
     else
         echo "sbox not found in $INSTALL_DIR"
     fi
+    
+    # Remove the config directory
+    if [ -d "$CONFIG_DIR" ]; then
+        rm -rf "$CONFIG_DIR"
+        echo "Removed sbox configuration from $CONFIG_DIR"
+    fi
+    
     exit 0
 fi
 
@@ -136,9 +169,18 @@ fi
 # Handle stop command
 if [ "$1" = "stop" ]; then
     if [ -z "$2" ]; then
-        # No container specified, stop the one for current directory
-        echo "Stopping sandbox container: $CONTAINER_NAME..."
-        docker stop "$CONTAINER_NAME" 2>/dev/null && docker rm "$CONTAINER_NAME" 2>/dev/null
+        # No container specified, stop all sbox containers
+        echo "Stopping all sandbox containers..."
+        containers=$(docker ps -a --filter "name=^sbox-" --format "{{.Names}}")
+        if [ -z "$containers" ]; then
+            echo "No sbox containers found."
+        else
+            echo "$containers" | while read -r container; do
+                echo "Stopping $container..."
+                docker stop "$container" 2>/dev/null && docker rm "$container" 2>/dev/null
+            done
+            echo "All sandbox containers stopped."
+        fi
     else
         # Stop specific container
         echo "Stopping sandbox container: $2..."
@@ -194,7 +236,7 @@ else
             -v "sbox-var:/var" \
             -v "sbox-etc:/etc" \
             -v "sbox-opt:/opt" \
-            -v "$SANDBOX_DIR/home:/home/sBOX" \
+            -v "$ROOT_INSTALL_DIR/home:/home/sBOX" \
             -v "sbox-root:/root" \
             "$IMAGE_NAME" \
             /bin/bash
