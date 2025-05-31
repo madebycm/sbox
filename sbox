@@ -5,8 +5,14 @@
 # Get current directory
 CURRENT_DIR="$(pwd)"
 
-# Get sandbox directory from script location
-SANDBOX_DIR="$(dirname "$(readlink -f "$0")")"
+# Get sandbox directory from script location or use embedded path
+if [ -f "$0" ] && [ "$(basename "$(dirname "$0")")" = "sbox" ]; then
+    # Running from source directory
+    SANDBOX_DIR="$(dirname "$(readlink -f "$0")")"
+else
+    # Running from installed location, use embedded path
+    SANDBOX_DIR="/Users/0x7f/www/sbox"
+fi
 
 # Generate container name based on current directory path
 # Replace / with - and remove leading/trailing -
@@ -24,8 +30,26 @@ if [ "$1" = "install" ]; then
     INSTALL_DIR="$HOME/.local/bin"
     mkdir -p "$INSTALL_DIR"
     
-    # Copy sbox script
-    cp "$SANDBOX_DIR/sbox" "$INSTALL_DIR/sbox"
+    # Create a wrapper script with embedded sandbox directory
+    cat > "$INSTALL_DIR/sbox" << 'EOF'
+#!/bin/bash
+# @author madebycm (2025-01-31)
+# sbox wrapper - installed version
+
+# Set the sandbox directory
+SANDBOX_DIR="/Users/0x7f/www/sbox"
+
+# Check if sandbox directory exists
+if [ ! -d "$SANDBOX_DIR" ]; then
+    echo "Error: sbox directory not found at $SANDBOX_DIR"
+    echo "Please reinstall sbox from the source directory."
+    exit 1
+fi
+
+# Execute the real sbox script
+exec "$SANDBOX_DIR/sbox" "$@"
+EOF
+    
     chmod +x "$INSTALL_DIR/sbox"
     
     # Check if ~/.local/bin is in PATH
@@ -170,7 +194,7 @@ else
             -v "sbox-var:/var" \
             -v "sbox-etc:/etc" \
             -v "sbox-opt:/opt" \
-            -v "sbox-home:/home" \
+            -v "$SANDBOX_DIR/home:/home/sBOX" \
             -v "sbox-root:/root" \
             "$IMAGE_NAME" \
             /bin/bash
