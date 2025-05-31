@@ -41,9 +41,11 @@ if [ "$(docker ps -q -f name=persistent-sbox)" ]; then
             docker exec -it persistent-sbox /bin/bash
             ;;
         2)
-            echo "Creating new sandbox instance is not yet implemented."
-            echo "Please stop the current container first with: sbox stop"
-            exit 1
+            echo "Stopping existing container and creating new instance..."
+            docker-compose down
+            echo "Mounting $CURRENT_DIR as /project in sandbox..."
+            docker-compose up -d --build
+            docker-compose exec sbox /bin/bash
             ;;
         *)
             echo "Invalid choice. Exiting."
