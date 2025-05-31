@@ -1,5 +1,5 @@
 #!/bin/bash
-# @author madebycm (2025-01-26)
+# @author madebycm (2025-01-31)
 # Sandbox launcher - mounts current directory as /project
 
 # Get current directory
@@ -8,62 +8,110 @@ CURRENT_DIR="$(pwd)"
 # Get sandbox directory from script location
 SANDBOX_DIR="$(dirname "$(readlink -f "$0")")"
 
-# Export project path for docker-compose
-export PROJECT_PATH="$CURRENT_DIR"
+# Generate container name based on current directory path
+# Replace / with - and remove leading/trailing -
+CONTAINER_SUFFIX=$(echo "$CURRENT_DIR" | sed 's|/|-|g' | sed 's/^-//' | sed 's/-$//' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+CONTAINER_NAME="sbox-${CONTAINER_SUFFIX}"
+
+# Docker image name
+IMAGE_NAME="sbox-image"
 
 # Change to sandbox directory
 cd "$SANDBOX_DIR"
 
-# Handle stop command
-if [ "$1" = "stop" ]; then
-    echo "Stopping sandbox container..."
-    docker-compose down
+# Handle list command
+if [ "$1" = "list" ]; then
+    echo "Running sbox containers:"
+    echo ""
+    # Find all containers starting with sbox-
+    docker ps --filter "name=^sbox-" --format "table {{.Names}}\t{{.Status}}\t{{.Mounts}}" | while IFS= read -r line; do
+        if [[ "$line" == "NAMES"* ]]; then
+            # Header row
+            echo "CONTAINER NAME    STATUS    PROJECT PATH"
+            echo "----------------------------------------"
+        else
+            # Parse container info
+            container_name=$(echo "$line" | awk '{print $1}')
+            status=$(echo "$line" | awk '{print $2" "$3" "$4}')
+            
+            # Get the project mount path
+            mount_path=$(docker inspect "$container_name" --format '{{ range .Mounts }}{{ if eq .Destination "/project" }}{{ .Source }}{{ end }}{{ end }}' 2>/dev/null)
+            
+            if [ -n "$mount_path" ]; then
+                printf "%-20s %-15s %s\n" "$container_name" "$status" "$mount_path"
+            fi
+        fi
+    done
     exit 0
 fi
 
-# Check if container is running
-if [ "$(docker ps -q -f name=persistent-sbox)" ]; then
-    # Container is running, ask user what to do
-    echo "Sandbox container is already running."
-    # Get the currently mounted directory
-    MOUNTED_DIR=$(docker inspect persistent-sbox --format '{{ range .Mounts }}{{ if eq .Destination "/project" }}{{ .Source }}{{ end }}{{ end }}')
-    echo "Currently mounted: $MOUNTED_DIR → /project"
-    echo ""
-    echo "What would you like to do?"
-    echo "1) Enter existing container"
-    echo "2) Create new instance"
-    echo -n "Choice (1/2): "
-    read -r choice
-    
-    case "$choice" in
-        1)
-            echo "Entering existing sandbox container..."
-            docker exec -it persistent-sbox /bin/bash
-            ;;
-        2)
-            echo "Stopping existing container and creating new instance..."
-            docker-compose down
-            echo "Mounting $CURRENT_DIR as /project in sandbox..."
-            docker-compose up -d --build
-            docker-compose exec sbox /bin/bash
-            ;;
-        *)
-            echo "Invalid choice. Exiting."
-            exit 1
-            ;;
-    esac
-else
-    # Container not running
-    echo "Mounting $CURRENT_DIR as /project in sandbox..."
-    
-    # Check if container exists but is stopped
-    if [ "$(docker ps -aq -f name=persistent-sbox)" ]; then
-        # Container exists but stopped, start it
-        docker-compose up -d
+# Handle stop command
+if [ "$1" = "stop" ]; then
+    if [ -z "$2" ]; then
+        # No container specified, stop the one for current directory
+        echo "Stopping sandbox container: $CONTAINER_NAME..."
+        docker stop "$CONTAINER_NAME" 2>/dev/null && docker rm "$CONTAINER_NAME" 2>/dev/null
     else
-        # First run, build and start
-        docker-compose up -d --build
+        # Stop specific container
+        echo "Stopping sandbox container: $2..."
+        docker stop "$2" 2>/dev/null && docker rm "$2" 2>/dev/null
     fi
+    exit 0
+fi
+
+# Build image if it doesn't exist
+if ! docker image inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+    echo "Building sbox image..."
+    docker build -t "$IMAGE_NAME" .
+fi
+
+# Check if container for this directory is running
+if [ "$(docker ps -q -f name="^${CONTAINER_NAME}$")" ]; then
+    echo "Sandbox container for this directory is already running: $CONTAINER_NAME"
+    echo "Mounted: $CURRENT_DIR → /project"
+    echo ""
+    echo "Entering existing container..."
+    docker exec -it "$CONTAINER_NAME" /bin/bash
+else
+    # Check if another sbox instance exists for this path
+    existing_container=$(docker ps --filter "name=^sbox-" --format "{{.Names}}" | while read -r name; do
+        mount_path=$(docker inspect "$name" --format '{{ range .Mounts }}{{ if eq .Destination "/project" }}{{ .Source }}{{ end }}{{ end }}' 2>/dev/null)
+        if [ "$mount_path" = "$CURRENT_DIR" ]; then
+            echo "$name"
+            break
+        fi
+    done)
     
-    docker-compose exec sbox /bin/bash
+    if [ -n "$existing_container" ]; then
+        echo "Found existing container for this path: $existing_container"
+        echo "Entering existing container..."
+        docker exec -it "$existing_container" /bin/bash
+    else
+        # Container not running for this directory
+        echo "Creating new sandbox instance: $CONTAINER_NAME"
+        echo "Mounting $CURRENT_DIR as /project..."
+        
+        # Check if container exists but is stopped
+        if [ "$(docker ps -aq -f name="^${CONTAINER_NAME}$")" ]; then
+            # Container exists but stopped, remove it first
+            docker rm "$CONTAINER_NAME" 2>/dev/null
+        fi
+        
+        # Create and start new container with shared volumes
+        docker run -dit \
+            --name "$CONTAINER_NAME" \
+            -v "$CURRENT_DIR:/project" \
+            -v "sbox-data:/data" \
+            -v "sbox-usr:/usr" \
+            -v "sbox-var:/var" \
+            -v "sbox-etc:/etc" \
+            -v "sbox-opt:/opt" \
+            -v "sbox-home:/home" \
+            -v "sbox-root:/root" \
+            "$IMAGE_NAME" \
+            /bin/bash
+        
+        # Enter the container
+        docker exec -it "$CONTAINER_NAME" /bin/bash
+    fi
 fi
