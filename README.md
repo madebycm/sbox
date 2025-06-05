@@ -1,5 +1,4 @@
 # sbox: Cryptographically Secure Polymorphic Container Orchestration Framework
-*@author madebycm (2025-01-31)*
 
 ## Abstract
 
@@ -185,14 +184,6 @@ sbox list       # Display active container instances
 sbox stop       # Terminate current or specified instance
 ```
 
-## Future Development
-
-1. **Kubernetes Migration**: Container orchestration at scale
-2. **Distributed Volume Sync**: Cross-host volume replication via consensus protocols
-3. **Checkpoint/Restore**: CRIU integration for stateful container migration
-4. **Encrypted Volumes**: Transparent encryption for persistent storage layers
-5. **Dynamic Resource Allocation**: ML-based cgroup limit optimization
-
 ## Security Considerations
 
 - `sbox purge` permanently deletes all persistent volumes
@@ -200,13 +191,3 @@ sbox stop       # Terminate current or specified instance
 - Home directory synchronization requires careful permission management
 - Destructive operations in any instance affect shared volumes
 
-## Requirements
-
-- Docker daemon (container runtime)
-- Bash ≥ 4.0 (shell interpreter)
-- Unix-like OS (Linux/macOS)
-- Standard POSIX utilities
-
----
-
-*Advanced container orchestration for secure development environments.*
