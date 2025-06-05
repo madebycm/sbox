@@ -227,8 +227,33 @@ else
             docker rm "$CONTAINER_NAME" 2>/dev/null
         fi
         
+        # Read additional volume mappings from mappings.conf
+        EXTRA_VOLUMES=""
+        MAPPINGS_FILE="$SANDBOX_DIR/mappings.conf"
+        if [ -f "$MAPPINGS_FILE" ]; then
+            while IFS= read -r line; do
+                # Skip empty lines and comments
+                if [[ -n "$line" && ! "$line" =~ ^[[:space:]]*# ]]; then
+                    # Split on first colon to handle paths with colons
+                    HOST_PATH="${line%%:*}"
+                    CONTAINER_PATH="${line#*:}"
+                    
+                    # Expand tilde and $HOME in both paths
+                    HOST_PATH="${HOST_PATH/#\~/$HOME}"
+                    HOST_PATH="${HOST_PATH//\$HOME/$HOME}"
+                    
+                    # Container paths must be absolute - expand tilde to /home/user
+                    CONTAINER_PATH="${CONTAINER_PATH/#\~/\/home/user}"
+                    CONTAINER_PATH="${CONTAINER_PATH//\$HOME/\/home/user}"
+                    
+                    # Add volume mapping
+                    EXTRA_VOLUMES="$EXTRA_VOLUMES -v \"$HOST_PATH:$CONTAINER_PATH\""
+                fi
+            done < "$MAPPINGS_FILE"
+        fi
+        
         # Create and start new container with shared volumes
-        docker run -dit \
+        eval docker run -dit \
             --name "$CONTAINER_NAME" \
             -v "$CURRENT_DIR:/project" \
             -v "sbox-data:/data" \
@@ -238,6 +263,7 @@ else
             -v "sbox-opt:/opt" \
             -v "$ROOT_INSTALL_DIR/home:/home/sBOX" \
             -v "sbox-root:/root" \
+            $EXTRA_VOLUMES \
             "$IMAGE_NAME" \
             /bin/bash
         
