@@ -253,7 +253,7 @@ else
         fi
         
         # Create and start new container with shared volumes
-        eval docker run -dit \
+        eval docker run -it \
             --name "$CONTAINER_NAME" \
             -v "$CURRENT_DIR:/project" \
             -v "sbox-data:/data" \
@@ -266,8 +266,5 @@ else
             $EXTRA_VOLUMES \
             "$IMAGE_NAME" \
             /bin/bash
-        
-        # Enter the container
-        docker exec -it "$CONTAINER_NAME" /bin/bash
     fi
 fi
