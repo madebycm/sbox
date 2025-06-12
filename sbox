@@ -201,7 +201,7 @@ if [ "$(docker ps -q -f name="^${CONTAINER_NAME}$")" ]; then
     echo "Mounted: $CURRENT_DIR → /project"
     echo ""
     echo "Entering existing container..."
-    docker exec -it "$CONTAINER_NAME" /bin/bash
+    docker exec -it -e TERM="$TERM" "$CONTAINER_NAME" /bin/bash
 else
     # Check if another sbox instance exists for this path
     existing_container=$(docker ps --filter "name=^sbox-" --format "{{.Names}}" | while read -r name; do
@@ -215,7 +215,7 @@ else
     if [ -n "$existing_container" ]; then
         echo "Found existing container for this path: $existing_container"
         echo "Entering existing container..."
-        docker exec -it "$existing_container" /bin/bash
+        docker exec -it -e TERM="$TERM" "$existing_container" /bin/bash
     else
         # Container not running for this directory
         echo "Creating new sandbox instance: $CONTAINER_NAME"
@@ -255,6 +255,9 @@ else
         # Create and start new container with shared volumes
         eval docker run -it \
             --name "$CONTAINER_NAME" \
+            -e TERM="$TERM" \
+            -e COLUMNS="$COLUMNS" \
+            -e LINES="$LINES" \
             -v "$CURRENT_DIR:/project" \
             -v "sbox-data:/data" \
             -v "sbox-usr:/usr" \

@@ -1,0 +1,19 @@
+# @author madebycm (2025)
+# Enable bash completion
+set completion-ignore-case on
+set show-all-if-ambiguous on
+set show-all-if-unmodified on
+
+# Shift+Tab for reverse menu-complete
+"\e[Z": menu-complete-backward
+
+# Tab for forward completion
+TAB: menu-complete
+
+# Enable bracketed paste mode
+set enable-bracketed-paste on
+
+# Other useful settings
+set colored-stats on
+set mark-symlinked-directories on
+set visible-stats on

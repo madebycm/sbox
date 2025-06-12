@@ -2,9 +2,9 @@ FROM ubuntu:latest
 
 # @author madebycm (2025-01-26)
 
-# Install sudo and create user
+# Install sudo, bash-completion, and other essential packages
 RUN apt-get update && \
-    apt-get install -y sudo && \
+    apt-get install -y sudo bash-completion && \
     rm -rf /var/lib/apt/lists/*
 
 # Create non-root user with password
