@@ -231,25 +231,45 @@ else
         EXTRA_VOLUMES=""
         MAPPINGS_FILE="$SANDBOX_DIR/mappings.conf"
         if [ -f "$MAPPINGS_FILE" ]; then
-            while IFS= read -r line; do
+            echo -e "${GREEN}Reading volume mappings from $MAPPINGS_FILE${NC}"
+            MAPPING_COUNT=0
+            while IFS= read -r line || [ -n "$line" ]; do
+                # Trim leading/trailing whitespace
+                line="$(echo -e "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
                 # Skip empty lines and comments
-                if [[ -n "$line" && ! "$line" =~ ^[[:space:]]*# ]]; then
+                if [[ -n "$line" && ! "$line" =~ ^# ]]; then
                     # Split on first colon to handle paths with colons
                     HOST_PATH="${line%%:*}"
                     CONTAINER_PATH="${line#*:}"
                     
                     # Expand tilde and $HOME in both paths
+                    ORIGINAL_HOST_PATH="$HOST_PATH"
                     HOST_PATH="${HOST_PATH/#\~/$HOME}"
                     HOST_PATH="${HOST_PATH//\$HOME/$HOME}"
                     
                     # Container paths must be absolute - expand tilde to /home/user
+                    ORIGINAL_CONTAINER_PATH="$CONTAINER_PATH"
                     CONTAINER_PATH="${CONTAINER_PATH/#\~/\/home/user}"
                     CONTAINER_PATH="${CONTAINER_PATH//\$HOME/\/home/user}"
                     
                     # Add volume mapping
                     EXTRA_VOLUMES="$EXTRA_VOLUMES -v \"$HOST_PATH:$CONTAINER_PATH\""
+                    ((MAPPING_COUNT++))
+                    
+                    # Show mapping details
+                    echo -e "${CYAN}  Mapping #$MAPPING_COUNT:${NC}"
+                    echo -e "${CYAN}    Original: $ORIGINAL_HOST_PATH:$ORIGINAL_CONTAINER_PATH${NC}"
+                    echo -e "${CYAN}    Expanded: $HOST_PATH → $CONTAINER_PATH${NC}"
                 fi
             done < "$MAPPINGS_FILE"
+            
+            if [ $MAPPING_COUNT -eq 0 ]; then
+                echo -e "${YELLOW}  No active mappings found (all lines commented or empty)${NC}"
+            else
+                echo -e "${GREEN}  Total mappings applied: $MAPPING_COUNT${NC}"
+            fi
+        else
+            echo -e "${YELLOW}No mappings.conf file found at $MAPPINGS_FILE${NC}"
         fi
         
         # Create and start new container with shared volumes

@@ -11,3 +11,4 @@ sandboxes/
 projects/
 compose.yml.bak
 /home/*
+mappings.conf

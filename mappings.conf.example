@@ -4,7 +4,6 @@
 # Supports ~ and $HOME expansion
 
 # Examples:
-# $HOME/.ssh:/home/user/.ssh
 # $HOME/Desktop/screenshots:/screenshots
-# ~/Documents:/home/user/Documents
+# ~/Documents:/home/sBOX/Documents
 # /opt/data:/data/shared
