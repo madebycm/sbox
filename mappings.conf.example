@@ -7,3 +7,5 @@
 # $HOME/Desktop/screenshots:/screenshots
 # ~/Documents:/home/sBOX/Documents
 # /opt/data:/data/shared
+#~/.claude/CLAUDE.md:/home/sBOX/.claude/CLAUDE.md
+#~/.claude/commands:/home/sBOX/.claude/commands
